@@ -103,12 +103,44 @@ function enregistrerArticle() {
         donnees.forEach(item => {            const datePerem = new Date(item.dateP + 'T00:00:00');            datePerem.setHours(0, 0, 0, 0);            const diffJours = Math.round((datePerem - aujourdhui) / (1000 * 60 * 60 * 24));            let statutHtml = "";            let rowClass = "";
             if (diffJours < 0) {                rowClass = "row-expired";                statutHtml = `<span class="tag-expired">⚠️ PÉRIMÉ (${Math.abs(diffJours)}j)</span>`;            } else if (diffJours <= 30) {                rowClass = "row-warning";                statutHtml = `<span class="tag-warning">⏳ Reste ${diffJours} j</span>`;            } else {                statutHtml = `<span class="tag-ok">✔️ Reste ${diffJours} j</span>`;            }
             const row = tbody.insertRow();            row.className = rowClass;            row.innerHTML = `                <td><strong>${echapperHTML(item.code)}</strong></td>                <td>${echapperHTML(item.desc)}</td>                <td><span class="badge">${echapperHTML(item.loc)}</span></td>                <td>${echapperHTML(item.dateP)}</td>                <td>${statutHtml}</td>                <td>${echapperHTML(item.qte)}</td>                <td><small>👤 ${echapperHTML(item.auteur || 'Inconnu')}</small></td>                <td class="no-print"><button class="btn-delete-row" onclick="supprimerLignePeremption('${echapperHTML(item.id)}')">❌ Supprimer</button></td>            `;        });    }
-    // ================= ENREGISTREMENT INVENTAIRES =================    function enregistrerInventaire() {        const code = document.getElementById('invNumArticle').value.trim();        let desc = document.getElementById('invDescArticle').value.trim();        let loc = document.getElementById('invLocArticle').value.trim();        const stockTheo = document.getElementById('invStockTheorique').value;        const stockReel = document.getElementById('invStockReel').value;        const auteur = utilisateurActif ? utilisateurActif.nom : "Magasinier";
-        if(!code)  alert("Veuillez saisir un numéro d'article.");        if(!desc) desc = "Article direct (" + code + ")";        if(!loc) loc = "Zone Générale";
-        const dateJour = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });        const sTheo = stockTheo !== "" ? parseFloat(stockTheo) : null;        const sReel = stockReel !== "" ? parseFloat(stockReel) : null;        const ecart = (sTheo !== null && sReel !== null) ? (sReel - sTheo) : 0;
-        const invData = {            id: 'inv_' + Date.now(),            code, desc, loc,            stockTheo: sTheo !== null ? sTheo : "-",            stockReel: sReel !== null ? sReel : "-",            ecart,            dateSaisie: dateJour,            dateValidation: null,            auteur,            validePar: null,            statut: "A faire",            timestamp: Date.now()        };
-        if (firebaseActif) database.ref('hub_inventaires/' + invData.id).set(invData);
-        document.getElementById('invNumArticle').value = "";        document.getElementById('invDescArticle').value = "";        document.getElementById('invLocArticle').value = "";        document.getElementById('invStockTheorique').value = "";        document.getElementById('invStockReel').value = "";        document.getElementById('invNumArticle').focus();    }
+   // ================= ENREGISTREMENT INVENTAIRES =================
+function enregistrerInventaire() {
+    const code = document.getElementById('invNumArticle').value.trim();
+    let desc = document.getElementById('invDescArticle').value.trim();
+    let loc = document.getElementById('invLocArticle').value.trim();
+    const stockTheo = document.getElementById('invStockTheo') ? document.getElementById('invStockTheo').value.trim() : "";
+    const stockReel = document.getElementById('invStockReel') ? document.getElementById('invStockReel').value.trim() : "";
+
+    if(!code) { alert("Veuillez saisir un numéro d'article."); return; }
+    if(!desc) desc = "Article direct (" + code + ")";
+    if(!loc) loc = "Zone Générale";
+
+    const dateJour = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    const sTheo = stockTheo !== "" ? parseFloat(stockTheo) : null;
+    const sReel = stockReel !== "" ? parseFloat(stockReel) : null;
+    const ecart = (sTheo !== null && sReel !== null) ? (sReel - sTheo) : "-";
+
+    const invData = {
+        id: 'inv_' + Date.now(),
+        code, desc, loc,
+        dateJour,
+        stockTheo: sTheo !== null ? sTheo : "-",
+        stockReel: sReel !== null ? sReel : "-",
+        ecart,
+        statut: "A faire",
+        auteur: auth.currentUser ? auth.currentUser.email : 'Anonyme',
+        timestamp: Date.now()
+    };
+
+    if (firebaseActif) {
+        database.ref('hub_inventaires/' + invData.id).set(invData);
+    }
+    document.getElementById('invNumArticle').value = "";
+    document.getElementById('invDescArticle').value = "";
+    document.getElementById('invLocArticle').value = "";
+    if(document.getElementById('invStockTheo')) document.getElementById('invStockTheo').value = "";
+    if(document.getElementById('invStockReel')) document.getElementById('invStockReel').value = "";
+}
     function basculerStatutInventaire(id) {        const item = listeInventaire.find(i => i.id === id);        if (!item || !firebaseActif) return;
         let maj = {};        if (item.statut === "Fait") {            maj = { statut: "A faire", dateValidation: null, validePar: null };        } else {            const maintenant = new Date().toLocaleDateString('fr-FR') + " " + new Date().toLocaleTimeString('fr-FR', {hour: '2-digit', minute:'2-digit'});            maj = {                statut: "Fait",                dateValidation: maintenant,                validePar: utilisateurActif ? utilisateurActif.nom : "Magasinier"            };        }        database.ref('hub_inventaires/' + id).update(maj);    }
     function supprimerLigneInventaire(id) {        if(confirm("Supprimer cet article de la liste d'inventaire ?")) {            if (firebaseActif) database.ref('hub_inventaires/' + id).remove();        }    }
