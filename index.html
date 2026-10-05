@@ -66,12 +66,33 @@
         if(code.length === 0) {            descInput.value = "";            locInput.value = "";            return;        }
         if(baseArticlesExcel[code]) {            descInput.value = baseArticlesExcel[code].desc;            locInput.value = baseArticlesExcel[code].loc;        } else {            descInput.value = "";            locInput.value = "";        }    }
     function obtenirGroupeZone(loc) {        const l = loc.toUpperCase();        if (l.includes("ZONE J") || l.startsWith("J")) return "Zone J (1 à 24)";        if (l.includes("ZONE G") || l.startsWith("G")) return "Zone G (1 à 7 et 8 à 25)";        if (l.includes("PERF")) return "Zone Perfusions";        if (l.includes("ZONE L") || l.startsWith("L") || l.includes("PAIR") || l.includes("GMER") || l.includes("GMAT")) return "Zone L (côté Pair / côté Impair)";        if (l.includes("BORDET")) return "Zone Bordet";        return "Zone N (rayonnages 1 à 8 + armoire 4)";    }
-    // ================= ENREGISTREMENT PÉREMPTIONS =================    function enregistrerArticle() {        const code = document.getElementById('numArticle').value.trim();        let desc = document.getElementById('descArticle').value.trim();        let loc = document.getElementById('locArticle').value.trim();        const dateP = document.getElementById('datePeremption').value;        const qte = document.getElementById('qteArticle').value;        const auteur = utilisateurActif ? utilisateurActif.nom : "Magasinier";
-        if(!code)  alert("Veuillez entrer un numéro d'article.");        if(!dateP)  alert("Veuillez sélectionner une date de péremption.");
-        if(!desc) desc = "Article direct (" + code + ")";        if(!loc) loc = "Zone Générale";
-        const groupZone = obtenirGroupeZone(loc);        const itemData = {            id: 'perem_' + Date.now(),            code, desc, loc, dateP, qte, groupZone, auteur,            timestamp: Date.now()        };
-        if (firebaseActif) {            database.ref('hub_peremptions/' + itemData.id).set(itemData);        }
-        document.getElementById('numArticle').value = "";        document.getElementById('descArticle').value = "";        document.getElementById('locArticle').value = "";        document.getElementById('datePeremption').value = "";        document.getElementById('qteArticle').value = "1";        document.getElementById('numArticle').focus();    }
+   // ================= ENREGISTREMENT PÉREMPTIONS =================
+function enregistrerArticle() {
+    const code = document.getElementById('numArticle').value.trim();
+    const desc = document.getElementById('descArticle').value.trim() || ("Article direct (" + code + ")");
+    const loc = document.getElementById('locArticle').value.trim() || "Zone Générale";
+    const dateP = document.getElementById('datePeremption').value;
+    const qte = document.getElementById('qteArticle').value.trim() || "1";
+
+    if(!code) { alert("Veuillez entrer un numéro d'article."); return; }
+    if(!dateP) { alert("Veuillez sélectionner une date de péremption."); return; }
+
+    const groupZone = obtenirGroupeZone(loc);
+    const itemData = {
+        id: 'perem_' + Date.now(),
+        code, desc, loc, dateP, qte, groupZone,
+        auteur: auth.currentUser ? auth.currentUser.email : 'Anonyme',
+        timestamp: Date.now()
+    };
+
+    if (firebaseActif) {
+        database.ref('hub_peremptions/' + itemData.id).set(itemData);
+    }
+    document.getElementById('numArticle').value = "";
+    document.getElementById('descArticle').value = "";
+    document.getElementById('locArticle').value = "";
+    document.getElementById('datePeremption').value = "";
+}
     function supprimerLignePeremption(id) {        if(confirm("Supprimer cet article du suivi ?")) {            if (firebaseActif) database.ref('hub_peremptions/' + id).remove();        }    }
     function supprimerPerimes() {        const aujourdhui = new Date();        aujourdhui.setHours(0, 0, 0, 0);        const aSupprimer = listeSuivi.filter(item => {            const datePerem = new Date(item.dateP + 'T00:00:00');            datePerem.setHours(0, 0, 0, 0);            return datePerem < aujourdhui;        });        if(aSupprimer.length === 0) return alert("Aucun article périmé à supprimer.");
         if(confirm(`Supprimer les ${aSupprimer.length} article(s) périmé(s) ?`)) {            if (firebaseActif) {                aSupprimer.forEach(item => database.ref('hub_peremptions/' + item.id).remove());            }        }    }
